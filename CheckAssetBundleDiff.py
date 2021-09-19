@@ -27,6 +27,7 @@ def get_manifest_assets_file(ast_file):
             file_path = line.lstrip('- ').rstrip()
             file_list.append(file_path)
         line = f.readline()
+    f.close()
     return file_list
 
 
@@ -42,6 +43,7 @@ def start_check(ast_bundle_path):
             pre_md5 = md5_check_result(file)
             file_list.append(pre_md5)
             md5_file_list.append(file_list)
+    return md5_file_list
 
 
 def get_asset_bundle_manifest():
@@ -55,8 +57,56 @@ def get_asset_bundle_manifest():
                     start_check(file_path)
 
 
-if __name__ == '__main__':
-    get_asset_bundle_manifest()
-    with open('assetBundle.csv', 'w') as f:
+asset_csv_file = 'assetBundle.csv'
+
+
+def write_file_csv(csv_file, content):
+    with open(csv_file, 'w') as f:
         write = csv.writer(f)
-        write.writerows(md5_file_list)
+        write.writerows(content)
+
+
+def write_asset_bundle_csv():
+    get_asset_bundle_manifest()
+    write_file_csv(asset_csv_file, md5_file_list)
+
+
+def get_asset_dependencies_md5_list(csv_file, ast_bundle_name):
+    child_path = []
+    with open(csv_file, 'r') as csv_file:
+        reader = csv.reader(csv_file)
+        for i, rows in enumerate(reader):
+            asset_bundle_name = rows[0]
+            if asset_bundle_name.endswith(ast_bundle_name):
+                csv_list = [rows[1], rows[2]]
+                child_path.append(csv_list)
+    return child_path
+
+
+def diff_patch_csv_file(patch_last, patch_cur):
+    if os.path.exists(patch_last) and os.path.exists(patch_cur):
+        csv_fileA = open(patch_last, 'r')
+        reader_last = list(csv.reader(csv_fileA))
+        csv_fileB = open(patch_cur, 'r')
+        reader_cur = list(csv.reader(csv_fileB))
+        diff_list = []
+        for i, rows in enumerate(reader_last):
+            file_name = rows[0]
+            file_md5 = rows[1]
+            for k, cur_rows in enumerate(reader_cur):
+                if file_name == cur_rows[0]:
+                    if file_md5 != cur_rows[1]:
+                        diff_item = [file_name, file_md5, cur_rows[1]]
+                        diff_list.append(diff_item)
+        csv_fileB.close()
+        csv_fileA.close()
+        return diff_list
+
+
+if __name__ == '__main__':
+    # test_key = 'renderresources_assetbundle.manifest'
+    # child = get_asset_dependencies_md5_list(asset_csv_file, test_key)
+    # write_file_csv('patchA.csv', child)
+    diff = diff_patch_csv_file('patchA.csv', 'patchB.csv')
+    write_file_csv('patch.csv', diff)
+
